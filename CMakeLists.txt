@@ -17,27 +17,26 @@ project(ng_gl4es)
     endif()
 #endif()
 
+option(STATICLIB OFF)
+
 # glslang & SPIRV-Cross
 
-set(ENABLE_RTTI                ON  CACHE BOOL "Enables RTTI (will be took by glslang)" FORCE)
-set(ENABLE_HLSL                OFF CACHE BOOL "Disable HLSL input for glslang" FORCE)
-set(BUILD_EXTERNAL             OFF CACHE BOOL "Disable build external dependencies for glslang" FORCE)
-set(ENABLE_GLSLANG_BINARIES    OFF CACHE BOOL "Disable glslangValidator/spirv-remap" FORCE)
-set(ENABLE_OPT                 OFF CACHE BOOL "Disable SPIRV-Tools opt usage in glslang" FORCE)
-set(BUILD_EXTERNAL             OFF CACHE BOOL "Don't build external deps in External/" FORCE)
-
-set(SPIRV_CROSS_ENABLE_C_API   ON  CACHE BOOL "Enable C API" FORCE)
-set(SPIRV_CROSS_ENABLE_GLSL    ON  CACHE BOOL "Enable GLSL backend" FORCE)
-set(SPIRV_CROSS_ENABLE_REFLECT OFF CACHE BOOL "Disable reflect" FORCE)
-set(SPIRV_CROSS_ENABLE_HLSL    OFF CACHE BOOL "Disable HLSL backend" FORCE)
-set(SPIRV_CROSS_ENABLE_MSL     OFF CACHE BOOL "Disable MSL backend" FORCE)
-set(SPIRV_CROSS_ENABLE_CPP     OFF CACHE BOOL "Disable C++ API target" FORCE)
-set(SPIRV_CROSS_CLI            OFF CACHE BOOL "Disable CLI binary" FORCE)
-set(SPIRV_CROSS_STATIC         ON  CACHE BOOL "Prefer static libs" FORCE)
-set(SPIRV_CROSS_ENABLE_UTIL    OFF  CACHE BOOL "Disable util" FORCE)
-
-add_subdirectory(3rdparty/glslang)
-add_subdirectory(3rdparty/SPIRV-Cross)
+# set(ENABLE_RTTI                ON  CACHE BOOL "Enables RTTI (will be took by glslang)" FORCE)
+# set(ENABLE_HLSL                OFF CACHE BOOL "Disable HLSL input for glslang" FORCE)
+# set(BUILD_EXTERNAL             OFF CACHE BOOL "Disable build external dependencies for glslang" FORCE)
+# set(ENABLE_GLSLANG_BINARIES    OFF CACHE BOOL "Disable glslangValidator/spirv-remap" FORCE)
+# set(ENABLE_OPT                 OFF CACHE BOOL "Disable SPIRV-Tools opt usage in glslang" FORCE)
+# set(BUILD_EXTERNAL             OFF CACHE BOOL "Don't build external deps in External/" FORCE)
+#
+# set(SPIRV_CROSS_ENABLE_C_API   ON  CACHE BOOL "Enable C API" FORCE)
+# set(SPIRV_CROSS_ENABLE_GLSL    ON  CACHE BOOL "Enable GLSL backend" FORCE)
+# set(SPIRV_CROSS_ENABLE_REFLECT OFF CACHE BOOL "Disable reflect" FORCE)
+# set(SPIRV_CROSS_ENABLE_HLSL    OFF CACHE BOOL "Disable HLSL backend" FORCE)
+# set(SPIRV_CROSS_ENABLE_MSL     OFF CACHE BOOL "Disable MSL backend" FORCE)
+# set(SPIRV_CROSS_ENABLE_CPP     OFF CACHE BOOL "Disable C++ API target" FORCE)
+# set(SPIRV_CROSS_CLI            OFF CACHE BOOL "Disable CLI binary" FORCE)
+# set(SPIRV_CROSS_STATIC         ON  CACHE BOOL "Prefer static libs" FORCE)
+# set(SPIRV_CROSS_ENABLE_UTIL    OFF  CACHE BOOL "Disable util" FORCE)
 
 enable_language(CXX)
 
@@ -57,7 +56,7 @@ if(ANDROID)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNOX11")
 endif()
 
-include_directories(${CMAKE_SOURCE_DIR}/include )
+include_directories(include )
 
 set(C_SRC_FILES
     src/gl/string_utils.c
@@ -148,39 +147,48 @@ set(CPP_SRC_FILES
 
 set(SRC_FILES ${CPP_SRC_FILES} ${C_SRC_FILES})
 
-add_library(ng_gl4es SHARED ${SRC_FILES})
+if(STATICLIB)
+    add_library(ng_gl4es STATIC ${SRC_FILES})
+else()
+    add_library(ng_gl4es SHARED ${SRC_FILES})
+endif()
 
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
+find_package(glslang CONFIG REQUIRED)
+find_package(spirv_cross_core CONFIG REQUIRED)
+find_package(spirv_cross_glsl CONFIG REQUIRED)
+find_package(spirv_cross_hlsl CONFIG REQUIRED)
+find_package(spirv_cross_msl CONFIG REQUIRED)
+find_package(spirv_cross_cpp CONFIG REQUIRED)
+find_package(spirv_cross_reflect CONFIG REQUIRED)
+find_package(spirv_cross_c CONFIG REQUIRED)
+
+target_link_libraries(ng_gl4es PRIVATE
     glslang::glslang
     spirv-cross-c
 )
 
 if(MACOS)
     # iOS
-    target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC
-        "-F${CMAKE_SOURCE_DIR}/external"
+    target_link_libraries(ng_gl4es PUBLIC
+        "-Fexternal"
         "-framework libEGL"
         "-framework libGLESv2"
         "-framework Metal"
         "-framework Foundation"
         "-framework QuartzCore"
     )
-else()
-if(ANDROID)
+elseif(ANDROID)
     # Android
-    target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC
+    target_link_libraries(ng_gl4es PUBLIC
         android
         log
     )
-else()
-    # Nothing to link
-endif()
 endif()
 
 target_include_directories(ng_gl4es PUBLIC
-    ${CMAKE_SOURCE_DIR}/include
+    include
 )
 
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
+set_target_properties(ng_gl4es PROPERTIES
     LINK_FLAGS "-Wl,--strip-all"
 )
